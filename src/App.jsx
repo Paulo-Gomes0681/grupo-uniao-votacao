@@ -10,15 +10,24 @@ export default function App() {
   const [results, setResults] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Adiciona participante (com regra especial para JORGINHO)
   const addParticipant = () => {
-    if (newName.trim() && !participants.find(p => p.name === newName.trim())) {
+    const trimmedName = newName.trim();
+
+    if (trimmedName && !participants.find(p => p.name === trimmedName)) {
+      const isJorginho = trimmedName.toUpperCase() === 'JORGINHO';
+
       const newParticipant = {
         id: Date.now(),
-        name: newName.trim(),
+        name: trimmedName,
         votes: 0,
-        hasVoted: false
+        hasVoted: false,
+        // Jorginho: pode votar, mas não pode ser votado
+        canBeVoted: !isJorginho,
+        role: isJorginho ? 'Diretor' : 'Atleta',
       };
-      const updated = [...participants, newParticipant].sort((a, b) => 
+
+      const updated = [...participants, newParticipant].sort((a, b) =>
         a.name.localeCompare(b.name, 'pt-BR')
       );
       setParticipants(updated);
@@ -40,9 +49,17 @@ export default function App() {
     }
   };
 
+  // Não vota em si mesmo nem em quem não pode ser votado (ex: Jorginho)
   const toggleVote = (candidateId) => {
-    if (!currentVoter || candidateId === currentVoter.id) return;
-    
+    if (!currentVoter) return;
+
+    const candidate = participants.find(p => p.id === candidateId);
+    if (!candidate) return;
+
+    if (candidate.id === currentVoter.id || candidate.canBeVoted === false) {
+      return;
+    }
+
     if (selectedVotes.includes(candidateId)) {
       setSelectedVotes(selectedVotes.filter(id => id !== candidateId));
     } else if (selectedVotes.length < 5) {
@@ -50,8 +67,14 @@ export default function App() {
     }
   };
 
+  // Confirma voto: exatamente 5 participantes obrigatórios
   const confirmVote = () => {
-    if (!currentVoter || selectedVotes.length === 0) return;
+    if (!currentVoter) return;
+
+    if (selectedVotes.length !== 5) {
+      alert('Você precisa votar em exatamente 5 pessoas!');
+      return;
+    }
 
     const updatedParticipants = participants.map(p => {
       if (p.id === currentVoter.id) {
@@ -68,33 +91,38 @@ export default function App() {
     setCurrentVoter(null);
   };
 
+  // Encerrar votação com senha
   const endVoting = () => {
-  const inputPassword = prompt("Digite a senha para encerrar a votação:");
+    const inputPassword = prompt('Digite a senha para encerrar a votação:');
 
-  if (inputPassword !== "062881") {
-    alert("Senha incorreta! A votação NÃO foi encerrada.");
-    return;
-  }
+    if (inputPassword !== '062881') {
+      alert('Senha incorreta! A votação NÃO foi encerrada.');
+      return;
+    }
 
-  const hasAnyVotes = participants.some(p => p.hasVoted);
-  if (!hasAnyVotes) {
-    alert('Nenhum voto foi registrado ainda!');
-    return;
-  }
+    const hasAnyVotes = participants.some(p => p.hasVoted);
+    if (!hasAnyVotes) {
+      alert('Nenhum voto foi registrado ainda!');
+      return;
+    }
 
-  if (confirm('Tem certeza que deseja encerrar a votação? Os resultados serão calculados com os votos já registrados.')) {
-    showResults(participants);
-  }
-};
+    if (
+      confirm(
+        'Tem certeza que deseja encerrar a votação? Os resultados serão calculados com os votos já registrados.'
+      )
+    ) {
+      showResults(participants);
+    }
+  };
 
   const showResults = (finalParticipants) => {
     const sorted = [...finalParticipants].sort((a, b) => b.votes - a.votes);
     const top5 = sorted.slice(0, 5);
-    
+
     setResults({
       president: top5[0],
       elected: top5,
-      all: sorted
+      all: sorted,
     });
     setVotingPhase(false);
     setCurrentVoter(null);
@@ -110,17 +138,24 @@ export default function App() {
     setSearchTerm('');
   };
 
-  const filteredParticipants = participants.filter(p => 
+  const filteredParticipants = participants.filter((p) =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // ================== TELAS ==================
+
+  // Tela de resultados finais
   if (results) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 p-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow-xl p-8">
             <div className="flex justify-center mb-6">
-              <img src="https://i.imgur.com/jyeIqaC.png" alt="Grupo União" className="h-32 w-32 object-contain" />
+              <img
+                src="https://i.imgur.com/jyeIqaC.png"
+                alt="Grupo União"
+                className="h-32 w-32 object-contain"
+              />
             </div>
             <h1 className="text-4xl font-bold text-center text-red-700 mb-2">
               União 2026
@@ -133,37 +168,66 @@ export default function App() {
             <div className="bg-gradient-to-r from-orange-400 to-red-500 rounded-lg p-6 mb-8 text-center">
               <Trophy className="w-16 h-16 mx-auto mb-3 text-white" />
               <h2 className="text-2xl font-bold text-white mb-2">Presidente</h2>
-              <p className="text-3xl font-bold text-white">{results.president.name}</p>
-              <p className="text-xl text-white mt-2">{results.president.votes} votos</p>
+              <p className="text-3xl font-bold text-white">
+                {results.president.name}
+                {results.president.role === 'Diretor' && ' (Diretor)'}
+              </p>
+              <p className="text-xl text-white mt-2">
+                {results.president.votes} votos
+              </p>
             </div>
 
             <div className="mb-8">
-              <h3 className="text-2xl font-bold text-red-700 mb-4">Os 5 Eleitos</h3>
+              <h3 className="text-2xl font-bold text-red-700 mb-4">
+                Os 5 Eleitos
+              </h3>
               <div className="space-y-3">
                 {results.elected.map((person, index) => (
-                  <div key={person.id} className="bg-orange-50 border-2 border-orange-500 rounded-lg p-4 flex items-center justify-between">
+                  <div
+                    key={person.id}
+                    className="bg-orange-50 border-2 border-orange-500 rounded-lg p-4 flex items-center justify-between"
+                  >
                     <div className="flex items-center gap-3">
-                      <span className="text-2xl font-bold text-red-700">#{index + 1}</span>
-                      <span className="text-xl font-semibold text-gray-800">{person.name}</span>
+                      <span className="text-2xl font-bold text-red-700">
+                        #{index + 1}
+                      </span>
+                      <span className="text-xl font-semibold text-gray-800">
+                        {person.name}
+                        {person.role === 'Diretor' && ' (Diretor)'}
+                      </span>
                     </div>
-                    <span className="text-lg font-bold text-red-700">{person.votes} votos</span>
+                    <span className="text-lg font-bold text-red-700">
+                      {person.votes} votos
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="mb-6">
-              <h3 className="text-xl font-bold text-gray-700 mb-3">Classificação Completa</h3>
+              <h3 className="text-xl font-bold text-gray-700 mb-3">
+                Classificação Completa
+              </h3>
               <div className="space-y-2">
                 {results.all.map((person, index) => (
-                  <div key={person.id} className={`rounded-lg p-3 flex items-center justify-between ${
-                    index < 5 ? 'bg-orange-50' : 'bg-gray-50'
-                  }`}>
+                  <div
+                    key={person.id}
+                    className={`rounded-lg p-3 flex items-center justify-between ${
+                      index < 5 ? 'bg-orange-50' : 'bg-gray-50'
+                    }`}
+                  >
                     <div className="flex items-center gap-3">
-                      <span className="font-bold text-gray-600">#{index + 1}</span>
-                      <span className="text-gray-800">{person.name}</span>
+                      <span className="font-bold text-gray-600">
+                        #{index + 1}
+                      </span>
+                      <span className="text-gray-800">
+                        {person.name}
+                        {person.role === 'Diretor' && ' (Diretor)'}
+                      </span>
                     </div>
-                    <span className="font-semibold text-gray-700">{person.votes} votos</span>
+                    <span className="font-semibold text-gray-700">
+                      {person.votes} votos
+                    </span>
                   </div>
                 ))}
               </div>
@@ -181,22 +245,36 @@ export default function App() {
     );
   }
 
+  // Tela de votação (escolhendo candidatos)
   if (votingPhase && currentVoter) {
+    const votersCount = participants.filter(p => p.hasVoted).length;
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 p-8">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white rounded-lg shadow-xl p-8">
             <div className="flex justify-center mb-4">
-              <img src="https://i.imgur.com/jyeIqaC.png" alt="Grupo União" className="h-24 w-24 object-contain" />
+              <img
+                src="https://i.imgur.com/jyeIqaC.png"
+                alt="Grupo União"
+                className="h-24 w-24 object-contain"
+              />
             </div>
             <div className="text-center mb-8">
               <Vote className="w-16 h-16 mx-auto mb-4 text-red-600" />
-              <h2 className="text-3xl font-bold text-red-700 mb-2">Votação em Andamento</h2>
+              <h2 className="text-3xl font-bold text-red-700 mb-2">
+                Votação em Andamento
+              </h2>
               <p className="text-xl text-gray-700">
-                Votante: <span className="font-bold text-red-600">{currentVoter.name}</span>
+                Votante:{' '}
+                <span className="font-bold text-red-600">
+                  {currentVoter.name}
+                  {currentVoter.role === 'Diretor' && ' (Diretor)'}
+                </span>
               </p>
               <p className="text-sm text-gray-500 mt-2">
-                Selecione até 5 candidatos (você não pode votar em si mesmo)
+                Você deve selecionar exatamente <strong>5 candidatos</strong>{' '}
+                (você não pode votar em si mesmo).
               </p>
             </div>
 
@@ -205,22 +283,36 @@ export default function App() {
                 <span className="text-lg font-semibold text-gray-700">
                   Votos selecionados: {selectedVotes.length}/5
                 </span>
+                <span className="text-sm text-gray-500">
+                  Já votaram: {votersCount} / {participants.length}
+                </span>
               </div>
-              
+
               <div className="space-y-3">
-                {participants.map(person => {
-                  const isCurrentVoter = currentVoter && person.id === currentVoter.id;
+                {participants.map((person) => {
+                  const isCurrentVoter =
+                    currentVoter && person.id === currentVoter.id;
                   const isSelected = selectedVotes.includes(person.id);
-                  const canSelect = !isCurrentVoter && (selectedVotes.length < 5 || isSelected);
+                  const canBeVoted = person.canBeVoted !== false; // padrão true
+                  const canSelect =
+                    canBeVoted &&
+                    !isCurrentVoter &&
+                    (selectedVotes.length < 5 || isSelected);
 
                   return (
                     <button
                       key={person.id}
                       onClick={() => toggleVote(person.id)}
-                      disabled={isCurrentVoter || (!isSelected && selectedVotes.length >= 5)}
+                      disabled={
+                        isCurrentVoter ||
+                        !canBeVoted ||
+                        (!isSelected && selectedVotes.length >= 5)
+                      }
                       className={`w-full p-4 rounded-lg border-2 transition flex items-center justify-between ${
                         isCurrentVoter
                           ? 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-50'
+                          : !canBeVoted
+                          ? 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-70'
                           : isSelected
                           ? 'bg-orange-100 border-red-500'
                           : canSelect
@@ -228,13 +320,18 @@ export default function App() {
                           : 'bg-gray-50 border-gray-200 cursor-not-allowed opacity-50'
                       }`}
                     >
-                      <span className={`text-lg font-semibold ${
-                        isCurrentVoter ? 'text-gray-500' : 'text-gray-800'
-                      }`}>
+                      <span
+                        className={`text-lg font-semibold ${
+                          isCurrentVoter ? 'text-gray-500' : 'text-gray-800'
+                        }`}
+                      >
                         {person.name}
+                        {person.role === 'Diretor' && ' (Diretor - não votado)'}
                         {isCurrentVoter && ' (você)'}
                       </span>
-                      {isSelected && <CheckCircle className="w-6 h-6 text-red-600" />}
+                      {isSelected && (
+                        <CheckCircle className="w-6 h-6 text-red-600" />
+                      )}
                     </button>
                   );
                 })}
@@ -250,9 +347,9 @@ export default function App() {
               </button>
               <button
                 onClick={confirmVote}
-                disabled={selectedVotes.length === 0}
+                disabled={selectedVotes.length !== 5}
                 className={`flex-1 py-4 rounded-lg font-bold text-lg transition ${
-                  selectedVotes.length === 0
+                  selectedVotes.length !== 5
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-red-600 text-white hover:bg-red-700'
                 }`}
@@ -263,7 +360,8 @@ export default function App() {
 
             <div className="mt-6 pt-6 border-t border-gray-200">
               <p className="text-sm text-gray-600 text-center">
-                Já votaram: {participants.filter(p => p.hasVoted).length} / {participants.length}
+                Já votaram: {participants.filter((p) => p.hasVoted).length} /{' '}
+                {participants.length}
               </p>
             </div>
           </div>
@@ -272,18 +370,27 @@ export default function App() {
     );
   }
 
+  // Tela de seleção do votante
   if (votingPhase && !currentVoter) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 p-8">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white rounded-lg shadow-xl p-8">
             <div className="flex justify-center mb-4">
-              <img src="https://i.imgur.com/jyeIqaC.png" alt="Grupo União" className="h-24 w-24 object-contain" />
+              <img
+                src="https://i.imgur.com/jyeIqaC.png"
+                alt="Grupo União"
+                className="h-24 w-24 object-contain"
+              />
             </div>
             <div className="text-center mb-8">
               <Users className="w-16 h-16 mx-auto mb-4 text-red-600" />
-              <h2 className="text-3xl font-bold text-red-700 mb-2">Selecione seu Nome</h2>
-              <p className="text-gray-600">Procure e clique no seu nome para começar a votar</p>
+              <h2 className="text-3xl font-bold text-red-700 mb-2">
+                Selecione seu Nome
+              </h2>
+              <p className="text-gray-600">
+                Procure e clique no seu nome para começar a votar
+              </p>
             </div>
 
             <div className="mb-6">
@@ -300,7 +407,7 @@ export default function App() {
             </div>
 
             <div className="mb-6 max-h-96 overflow-y-auto space-y-2">
-              {filteredParticipants.map(person => (
+              {filteredParticipants.map((person) => (
                 <button
                   key={person.id}
                   onClick={() => selectVoter(person)}
@@ -314,6 +421,7 @@ export default function App() {
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-semibold text-gray-800">
                       {person.name}
+                      {person.role === 'Diretor' && ' (Diretor)'}
                     </span>
                     {person.hasVoted && (
                       <span className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">
@@ -327,9 +435,11 @@ export default function App() {
 
             <div className="pt-6 border-t border-gray-200 space-y-3">
               <p className="text-center text-gray-600">
-                Já votaram: {participants.filter(p => p.hasVoted).length} / {participants.length}
+                Já votaram:{' '}
+                {participants.filter((p) => p.hasVoted).length} /{' '}
+                {participants.length}
               </p>
-              
+
               <button
                 onClick={endVoting}
                 className="w-full py-3 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 transition flex items-center justify-center gap-2"
@@ -344,12 +454,17 @@ export default function App() {
     );
   }
 
+  // Tela inicial (cadastro de participantes)
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 p-8">
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-lg shadow-xl p-8">
           <div className="flex justify-center mb-4">
-            <img src="https://i.imgur.com/jyeIqaC.png" alt="Grupo União" className="h-32 w-32 object-contain" />
+            <img
+              src="https://i.imgur.com/jyeIqaC.png"
+              alt="Grupo União"
+              className="h-32 w-32 object-contain"
+            />
           </div>
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-red-700 mb-2">União 2026</h1>
@@ -366,7 +481,7 @@ export default function App() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && addParticipant()}
-                placeholder="Nome do participante"
+                placeholder='Nome do participante (ex: "JORGINHO")'
                 className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none"
               />
               <button
@@ -376,6 +491,10 @@ export default function App() {
                 Adicionar
               </button>
             </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Se adicionar <strong>JORGINHO</strong>, ele será marcado como{' '}
+              <strong>Diretor</strong>: pode votar, mas não pode ser votado.
+            </p>
           </div>
 
           {participants.length > 0 && (
@@ -389,9 +508,16 @@ export default function App() {
                     key={person.id}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                   >
-                    <span className="text-gray-800 font-medium">{person.name}</span>
+                    <span className="text-gray-800 font-medium">
+                      {person.name}
+                      {person.role === 'Diretor' && ' (Diretor)'}
+                    </span>
                     <button
-                      onClick={() => setParticipants(participants.filter(p => p.id !== person.id))}
+                      onClick={() =>
+                        setParticipants(
+                          participants.filter((p) => p.id !== person.id)
+                        )
+                      }
                       className="text-red-600 hover:text-red-700"
                     >
                       <XCircle className="w-5 h-5" />
