@@ -69,15 +69,23 @@ export default function App() {
   };
 
   const endVoting = () => {
-    const hasAnyVotes = participants.some(p => p.hasVoted);
-    if (!hasAnyVotes) {
-      alert('Nenhum voto foi registrado ainda!');
-      return;
-    }
-    if (confirm('Tem certeza que deseja encerrar a votação? Os resultados serão calculados com os votos já registrados.')) {
-      showResults(participants);
-    }
-  };
+  const inputPassword = prompt("Digite a senha para encerrar a votação:");
+
+  if (inputPassword !== "062881") {
+    alert("Senha incorreta! A votação NÃO foi encerrada.");
+    return;
+  }
+
+  const hasAnyVotes = participants.some(p => p.hasVoted);
+  if (!hasAnyVotes) {
+    alert('Nenhum voto foi registrado ainda!');
+    return;
+  }
+
+  if (confirm('Tem certeza que deseja encerrar a votação? Os resultados serão calculados com os votos já registrados.')) {
+    showResults(participants);
+  }
+};
 
   const showResults = (finalParticipants) => {
     const sorted = [...finalParticipants].sort((a, b) => b.votes - a.votes);
